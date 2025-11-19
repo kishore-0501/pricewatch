@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card shadow p-4 mb-4">
+    <h2>{{ product.name }}</h2>
+
+    <img src="{{ product.image_url }}" height="200"/>
+
+    <p class="mt-3">{{ product.description }}</p>
+
+    <h4 class="mt-4">Price History</h4>
+
+    <canvas id="priceChart"></canvas>
+
+    <div class="mt-4">
+        <h5>📉 All-Time Low: €{{ low_price }}</h5>
+        <h5>📈 All-Time High: €{{ high_price }}</h5>
+    </div>
+</div>
+
+<script>
+var ctx = document.getElementById('priceChart').getContext('2d');
+
+var priceData = {{ price_list|safe }};
+var labelData = {{ date_list|safe }};
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: labelData,
+        datasets: [{
+            label: 'Price (€)',
+            data: priceData,
+            borderWidth: 3,
+            tension: 0.3
+        }]
+    }
+});
+</script>
+
+{% endblock %}
