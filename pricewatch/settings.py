@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # -----------------------------
 # BASE DIRECTORY
@@ -98,20 +99,24 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+LOGIN_REDIRECT_URL = "/"
+
 # -----------------------------
 # STATIC FILES
 # -----------------------------
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "static"]  # optional, if you have a project-wide static folder
 
+# Optional: your project-wide static folder (development)
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Production: folder where collectstatic collects all static files
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # -----------------------------
 # DEFAULT PRIMARY KEY FIELD TYPE
 # -----------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # -----------------------------
-# -----------------------------
-# EMAIL CONFIGURATION (For OTP using AWS SES)
 # -----------------------------
 # Email Settings (Elastic Email)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

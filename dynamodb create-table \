@@ -1,0 +1,32 @@
+{
+    "TableDescription": {
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "product_id",
+                "AttributeType": "S"
+            }
+        ],
+        "TableName": "Products",
+        "KeySchema": [
+            {
+                "AttributeName": "product_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "TableStatus": "CREATING",
+        "CreationDateTime": "2025-11-24T09:39:03.251000+00:00",
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+        },
+        "TableSizeBytes": 0,
+        "ItemCount": 0,
+        "TableArn": "arn:aws:dynamodb:us-east-1:674288434028:table/Products",
+        "TableId": "92323b38-833d-4363-8f29-998f68ca17d2",
+        "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST"
+        },
+        "DeletionProtectionEnabled": false
+    }
+}

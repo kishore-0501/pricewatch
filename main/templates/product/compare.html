@@ -1,0 +1,218 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ product.name }} - Price Comparison</title>
+
+    <style>
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #f5f6fa;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 36px;
+            color: #222;
+            margin-bottom: 20px;
+        }
+
+        .product-img {
+            display: block;
+            margin: auto;
+            width: 250px;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0px 4px 16px rgba(0,0,0,0.15);
+        }
+
+        table {
+            width: 100%;
+            margin-top: 40px;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #1e1e2f;
+            color: white;
+            padding: 14px;
+            font-size: 18px;
+        }
+
+        td {
+            text-align: center;
+            padding: 14px;
+            font-size: 17px;
+            border-bottom: 1px solid #e1e1e1;
+        }
+
+        tr:hover {
+            background: #f0f7ff;
+        }
+
+        a.visit-btn {
+            background: #007bff;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 15px;
+        }
+
+        a.visit-btn:hover {
+            background: #0056d6;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-top: 30px;
+            background: #999;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #777;
+        }
+
+        /* Notify Me Button */
+        #notify-btn {
+            display: inline-block;
+            background: #28a745; /* Green for action */
+            color: white;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        #notify-btn:hover {
+            background: #218838; /* Darker green on hover */
+            transform: translateY(-2px);
+        }
+
+        #notify-btn:disabled {
+            background: #94d3a2; /* Lighter green when disabled */
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #notify-status {
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        /* Least Price */
+        #least-price {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #e74c3c; /* red for emphasis */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <h1>{{ product.name }}</h1>
+        <img src="{{ product.image }}" class="product-img" alt="{{ product.name }}">
+
+        <table>
+            <tr>
+                <th>Store</th>
+                <th>Price</th>
+                <th>Visit</th>
+            </tr>
+            {% for p in prices %}
+            <tr>
+                <td>{{ p.vendor }}</td>
+                <td>€ {{ p.price }}</td>
+                <td>
+                    <a href="{{ p.url_to_store }}" target="_blank" class="visit-btn">Open</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- Display Least Price -->
+        <div id="least-price">
+            Lowest Price: € {{ least_price }}
+            Best Place: {{vendor}}
+        </div>
+
+        <a href="/" class="back-btn">← Back</a>
+
+        <!-- Notify Button -->
+        <div style="text-align:center;">
+            <button id="notify-btn">Notify Me</button>
+            <span id="notify-status"></span>
+        </div>
+
+    </div>
+    
+    <script>
+        const notifyBtn = document.getElementById('notify-btn');
+        const notifyStatus = document.getElementById('notify-status');
+
+        // API Gateway endpoint
+        const API_URL = 'https://7acl3xjpn2.execute-api.us-east-1.amazonaws.com/prod/notify';
+
+        notifyBtn.addEventListener('click', async () => {
+            notifyBtn.disabled = true;
+            notifyBtn.textContent = 'Sending...';
+            notifyStatus.textContent = '';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        productId: '{{ product.id }}',
+                        productName: '{{ product.name }}'
+                    })
+                });
+
+                if (response.ok) {
+                    notifyStatus.style.color = 'green';
+                    notifyStatus.textContent = 'Notification sent successfully!';
+                } else {
+                    const errorData = await response.json();
+                    notifyStatus.style.color = 'red';
+                    notifyStatus.textContent = `Failed: ${errorData.message || response.statusText}`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                notifyStatus.style.color = 'red';
+                notifyStatus.textContent = 'Error sending notification.';
+            } finally {
+                notifyBtn.disabled = false;
+                notifyBtn.textContent = 'Notify Me';
+            }
+        });
+    </script>
+
+</body>
+</html>

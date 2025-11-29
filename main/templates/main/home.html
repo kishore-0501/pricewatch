@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -155,7 +156,7 @@
             <a href="#">Price Graph</a>
             <a href="#">Marketplace</a>
             <a href="/signup">Signup</a>
-            <a href="/login">Login</a>
+            <a href="/accounts/login">Login</a>
         </div>
     </div>
 
@@ -166,10 +167,90 @@
             Get alerts, compare prices, and save more with PriceWatch.
         </div>
 
-        <div class="search-box-container">
-            <input type="text" class="search-box" placeholder="Search any product...">
-        </div>
+        <form action="{% url 'search_product' %}" method="get" class="search-box-container">
+            <div class="search-wrapper">
+                <input 
+                    type="text" 
+                    name="q" 
+                    class="search-box" 
+                    placeholder="Search any product..."
+                    required
+                >
+                <button type="submit" class="search-arrow-btn">➜</button>
+            </div>
+        </form>
     </section>
+
+    
+        <h1 class="text-3xl font-bold mb-6">Products</h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for product in products %}
+        <div class="bg-white p-4 rounded-xl shadow-md">
+         <img src="{% static '' %}{{ product.image }}"
+     alt="{{ product.name }}"
+     class="w-full h-48 object-cover rounded-lg mb-4">
+
+            <h2 class="text-xl font-semibold mb-2">{{ product.name }}</h2>
+            <p class="text-gray-700 mb-2">{{ product.description|truncatewords:20 }}</p>
+            <p class="text-lg font-bold mb-4">€{{ product.price }}</p>
+
+            <a href="{% url 'product_detail' product.id %}" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">View Details</a>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <style>
+    
+/* Container for the search box */
+.search-box-container {
+    display: flex;
+    justify-content: center; /* center the search bar horizontally */
+    margin-top: 20px;
+}
+
+/* Wrapper to hold input and button together */
+.search-wrapper {
+    display: flex;
+    border: 2px solid #ccc;  /* border around the search bar */
+    border-radius: 25px;     /* rounded corners */
+    overflow: hidden;         /* clip the button inside rounded corners */
+    width: 400px;             /* adjust width as needed */
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* subtle shadow */
+}
+
+/* Search input */
+.search-box {
+    flex: 1;                  /* take up remaining space */
+    border: none;             /* remove default border */
+    padding: 10px 20px;       /* space inside input */
+    font-size: 16px;
+    outline: none;            /* remove outline on focus */
+}
+
+/* Search button with arrow */
+.search-arrow-btn {
+    background-color: #007BFF; /* blue button */
+    color: white;
+    border: none;
+    padding: 0 20px;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+.search-arrow-btn:hover {
+    background-color: #0056b3; /* darker on hover */
+}
+
+
+
+    </style>
+    
 
     <!-- GRAPH -->
     <section class="graph-section">

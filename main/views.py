@@ -3,173 +3,122 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.conf import settings
-from .models import Product, PriceHistory, UserProfile
+from .models import Product
 from .forms import SignupForm, LoginForm
 import random
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from . import ebay_client, amazon_rapidapi
+from django.utils.text import slugify
+from decimal import Decimal
+from .models import Product
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.decorators import login_required
+import boto3
+from boto3.dynamodb.conditions import Key
+from django.contrib import messages
+from price_comparator.validators import find_least_price
 
 
-# ---------------------------
-# Home Page View (Public)
-# ---------------------------
+db_client = boto3.resource('dynamodb')
+product_table=db_client.Table('Products')
+price_table = db_client.Table('Prices')
+
+
+
+
 def home(request):
     query = request.GET.get('q', '')
-    if query:
-        products = Product.objects.filter(name__icontains=query)
-    else:
-        products = Product.objects.all()
-
-    product_data = []
-    for p in products:
-        history = PriceHistory.objects.filter(product=p)
-        prices = [h.price for h in history]
-        product_data.append({
-            'product': p,
-            'low_price': min(prices) if prices else 0,
-            'high_price': max(prices) if prices else 0,
-            'current_price': prices[-1] if prices else 0
-        })
-
+    products = Product.objects.all()
     return render(request, "main/home.html", {
-        "products": product_data,
+        "products": products,
         "query": query
     })
+    
 
-def product_detail(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
-    history = PriceHistory.objects.filter(product=product).order_by("timestamp")
 
-    price_list = [h.price for h in history]
-    date_list = [h.timestamp.strftime("%Y-%m-%d") for h in history]
 
-    low_price = min(price_list) if price_list else 0
-    high_price = max(price_list) if price_list else 0
+def signup(request):
+    print('0')
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            print('4')
+            user = form.save()  # Save the user
+            # Automatically log in the new user
+            username = form.cleaned_data.get("username")
+            raw_password = form.cleaned_data.get("password1")
+            print("user name ")
+            user = authenticate(username=username, password=raw_password)
+            print('1')
+            login(request, user)
+            print('2')
+            return redirect("/")  # Redirect to home page
+    else:
+        form = UserCreationForm()
 
-    return render(request, "main/product_detail.html", {
-        "product": product,
-        "price_list": price_list,
-        "date_list": date_list,
-        "low_price": low_price,
-        "high_price": high_price,
+    return render(request, "registration/signup.html", {"form": form})
+
+
+def product_list(request):
+    products = Product.objects.all()
+    return render(request, 'product_list.html', {'products': products})
+    
+
+def product_detail(request, id):
+    response = product_table.scan()
+    products = response.get('Items', [])
+    return render(request, 'product_detail.html', {'product': product})
+    
+
+
+
+def price_fetch(id):
+    product_id = str(id)
+
+    # Fetch product
+    response = product_table.get_item(Key={'product_id': id})
+    product = response.get('Item')
+
+    if not product:
+        return render(request, 'product/not_found.html', {'product_id': id})
+
+    return product
+    
+
+def product_compare(request, id):
+
+    price_response = price_table.query(
+        KeyConditionExpression=Key('product_id').eq(str(id))
+    )
+    prices = price_response.get('Items', [])
+    print(prices)
+    leastPrice = find_least_price(prices)
+    print('least Price = ',leastPrice['price'])
+    # Debug print
+    for p in prices:
+        print(f"Vendor: {p['vendor']}, Price: {p['price']}")
+
+    product =  {
+        'product_id': '1',
+        'name': 'iPhone 17 Pro',
+        'description': 'Latest Apple iPhone model',
+        'image': 'https://price-comparator-bucket.s3.us-east-1.amazonaws.com/iPhone17.jpg'
+    }
+    return render(request, 'product/compare.html', {
+        'product': product,
+        'prices': prices,
+        'least_price':leastPrice['price'],
+        'vendor':leastPrice['vendor']
     })
 
-# ---------------------------
-# STEP 1 — SIGNUP (Store data + send OTP)
-# ---------------------------
-def signup(request):
-    if request.method == "POST":
-        form = SignupForm(request.POST)
-        if form.is_valid():
-            username = form.cleaned_data["username"]
-            email = form.cleaned_data["email"]
-            password = form.cleaned_data["password"]
+def search_product(request):
+    query = request.GET.get('q', '')
 
-            # Check if username or email exists
-            if User.objects.filter(username=username).exists():
-                return render(request, "main/signup.html", {
-                    "form": form,
-                    "error": "Username already exists."
-                })
-
-            if User.objects.filter(email=email).exists():
-                return render(request, "main/signup.html", {
-                    "form": form,
-                    "error": "Email already registered."
-                })
-
-            # Generate OTP
-            otp = random.randint(100000, 999999)
-
-            # Save signup data temporarily in session
-            request.session["pending_user"] = {
-                "username": username,
-                "email": email,
-                "password": password,
-                "otp": otp,
-            }
-
-            # Send OTP email
-            send_mail(
-                subject="Your PriceWatch OTP",
-                message=f"Your OTP is {otp}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
-            )
-
-            return redirect("verify_otp")
-
-    else:
-        form = SignupForm()
-
-    return render(request, "main/signup.html", {"form": form})
-
-
-# ---------------------------
-# STEP 2 — OTP Verification (Create user after OTP)
-# ---------------------------
-def verify_otp(request):
-    pending = request.session.get("pending_user")
-    if not pending:
-        return redirect("signup")
-
-    if request.method == "POST":
-        entered_otp = request.POST.get("otp")
-
-        if str(entered_otp) == str(pending["otp"]):
-            # Create user only after OTP is correct
-            user = User.objects.create_user(
-                username=pending["username"],
-                email=pending["email"],
-                password=pending["password"]
-            )
-
-            UserProfile.objects.create(user=user, otp_verified=True)
-
-            # Clear pending session
-            del request.session["pending_user"]
-
-            return redirect("login")
-
-        return render(request, "main/verify_otp.html", {
-            "error": "Incorrect OTP. Try again."
-        })
-
-    return render(request, "main/verify_otp.html")
-
-
-# ---------------------------
-# STEP 3 — LOGIN
-# ---------------------------
-def login_view(request):
-    if request.method == "POST":
-        form = LoginForm(request.POST)
-        if form.is_valid():
-            username = form.cleaned_data["username"]
-            password = form.cleaned_data["password"]
-
-            user = authenticate(username=username, password=password)
-            if user:
-                profile = UserProfile.objects.get(user=user)
-                if not profile.otp_verified:
-                    return redirect("verify_otp")
-
-                login(request, user)
-                return redirect("home")
-
-            return render(request, "main/login.html", {
-                "form": form,
-                "error": "Invalid username or password"
-            })
-
-    else:
-        form = LoginForm()
-
-    return render(request, "main/login.html", {"form": form})
-
-
-# ---------------------------
-# LOGOUT
-# ---------------------------
-def logout_view(request):
-    logout(request)
-    return redirect("home")
+    try:
+        product = Product.objects.get(name__icontains=query)
+        print('2')
+        return redirect('productcompare', id=product.id)
+    except Product.DoesNotExist:
+        return render(request, 'search_not_found.html', {'query': query})
