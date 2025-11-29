@@ -19,11 +19,17 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from django.contrib import messages
 from price_comparator.validators import find_least_price
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+import json
+from django.http import JsonResponse
+import datetime
 
 
 db_client = boto3.resource('dynamodb')
 product_table=db_client.Table('Products')
 price_table = db_client.Table('Prices')
+wishlist_table = db_client.Table('wishlist')
 
 
 
@@ -95,6 +101,7 @@ def product_compare(request, id):
     prices = price_response.get('Items', [])
     print(prices)
     leastPrice = find_least_price(prices)
+    print('lestprice',leastPrice)
     print('least Price = ',leastPrice['price'])
     # Debug print
     for p in prices:
@@ -122,3 +129,63 @@ def search_product(request):
         return redirect('productcompare', id=product.id)
     except Product.DoesNotExist:
         return render(request, 'search_not_found.html', {'query': query})
+
+
+@login_required
+@csrf_exempt
+def add_to_wishlist(request, product_id):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        product_name = data.get('product_name')
+        vendor = data.get('vendor')
+        price = data.get('price')
+        image = data.get('image')
+
+        user_id = str(request.user.id)
+        # Use user_id + product_id as primary key to avoid duplicates
+        try:
+            # Check if item already exists
+            response = wishlist_table.get_item(
+                Key={
+                    'product_id': str(product_id)
+                }
+            )
+
+            if 'Item' in response:
+                return JsonResponse({"message": f"{product_name} from {vendor} is already in wishlist."})
+
+            # Add item to DynamoDB
+            wishlist_table.put_item(
+                Item={
+                    'user_id': user_id,
+                    'product_id': str(product_id),
+                    'product_name': product_name,
+                    'vendor': vendor,
+                    'price': str(price),
+                    'image': image,
+                    'added_at': datetime.datetime.utcnow().isoformat()
+                }
+            )
+            return JsonResponse({"message": f"{product_name} from {vendor} added to wishlist!"})
+
+        except Exception as e:
+            return JsonResponse({"message": f"Error adding to wishlist: {str(e)}"}, status=500)
+
+    return JsonResponse({"message": "Invalid request"}, status=400)
+@login_required
+def remove_from_wishlist(request, id):
+    product = get_object_or_404(Product, id=id)
+
+    Wishlist.objects.filter(
+        user=request.user,
+        product=product
+    ).delete()
+
+    return redirect('product_detail', id=id)
+
+
+@login_required
+def my_wishlist(request):
+    items = Wishlist.objects.filter(user=request.user).select_related('product')
+    return render(request, "main/wishlist.html", {"items": items})

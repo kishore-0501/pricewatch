@@ -1,0 +1,15 @@
+<h2>My Wishlist</h2>
+
+{% if items %}
+    <ul>
+        {% for item in items %}
+            <li>
+                <img src="{{ item.product.image.url }}" width="80">
+                {{ item.product.name }} — {{ item.product.price }} €
+                <a href="{% url 'product_detail' item.product.id %}">View</a>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>You have no items in your wishlist.</p>
+{% endif %}

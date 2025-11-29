@@ -168,6 +168,17 @@
             <button id="notify-btn">Notify Me</button>
             <span id="notify-status"></span>
         </div>
+        
+        
+<div style="text-align:center; margin-top:20px;">
+    <button id="add-wishlist-btn"
+            style="background:#ff4081;color:white;padding:10px 20px;
+                   font-size:16px;font-weight:bold;border:none;
+                   border-radius:8px;cursor:pointer;">
+        ❤️ Add Least Price to Wishlist
+    </button>
+    <span id="wishlist-status" style="margin-left:10px;font-weight:bold;"></span>
+</div>
 
     </div>
     
@@ -212,6 +223,49 @@
                 notifyBtn.textContent = 'Notify Me';
             }
         });
+        
+        
+        
+        const wishlistBtn = document.getElementById('add-wishlist-btn');
+const wishlistStatus = document.getElementById('wishlist-status');
+
+wishlistBtn.addEventListener('click', async () => {
+    wishlistBtn.disabled = true;
+    wishlistStatus.textContent = 'Adding...';
+
+    try {
+        const response = await fetch("{% url 'add_to_wishlist' product.product_id %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({
+                product_name: "{{ product.name }}",
+                vendor: "{{ vendor }}",
+                price: "{{ least_price }}",
+                image: "{{ product.image }}"
+            })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            wishlistStatus.style.color = 'green';
+            wishlistStatus.textContent = data.message;
+        } else {
+            wishlistStatus.style.color = 'red';
+            wishlistStatus.textContent = data.message || 'Failed to add to wishlist.';
+        }
+
+    } catch (error) {
+        console.error(error);
+        wishlistStatus.style.color = 'red';
+        wishlistStatus.textContent = 'Error adding to wishlist.';
+    } finally {
+        wishlistBtn.disabled = false;
+    }
+});
+        
     </script>
 
 </body>
